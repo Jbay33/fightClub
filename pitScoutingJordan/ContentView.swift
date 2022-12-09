@@ -8,77 +8,84 @@
 import SwiftUI
 struct ContentView: View {
     @State var newTeam = ""
-    @State var teamList = ["484"]
+    @State var teamList: [Team] = [ ]
     @State var showAlert = false
-    @State var deleteAlert = false
-    @State var deleteOption = false
-    @State var deleteControl = false
+    
     var body: some View {
         NavigationView(){
             VStack{
-                Toggle("Enable Delete", isOn: $deleteControl)
                 List{
-                    ForEach(teamList,  id:\.self){
-                        teamList in
-                        Text(teamList)
+                    ForEach(teamList){
+                        team in
+                        NavigationLink(destination: TeamView(team: team)){
+                            Text(verbatim: "\(team.number)")
+                        }
                     }
-                    .onDelete(perform: deleteControl ? delete : nil)
-                    .navigationTitle("Teams")
+                    
                 }
-                .toolbar{
+                .navigationTitle("Teams")
+                .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("+"){
                             showAlert.toggle()
                         }
                     }
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        EditButton()
-                    }
                 }
                 .alert("Add Team", isPresented: $showAlert) {
                     TextField("", text: $newTeam, prompt: Text("Team"))
-                    Button("Mibro"){
-                        addTeam()
-                        saveInput()
+                    Button("Accept") {
+                        showAlert = false
+                        
+                        if let possibleNum = Int(newTeam.trimmingCharacters(in: .whitespaces)) {
+                            for i in teamList {
+                                if i.number == possibleNum {
+                                    newTeam = ""
+                                    return
+                                }
+                            }
+                            
+                            addTeam()
+                            
+                            saveInput()
+                        }
+                        
+                        newTeam = ""
                     }
                 }
-                .alert("Delete Team", isPresented: $deleteAlert) {
-                    Text("Are you sure you want to delete team ")
-                    Button("Delete"){
-                        deleteOption = true
-                    }
-                    Button("Cancel"){
-                        //nothing
-                    }
-                }
-            }
+            }.onAppear(perform: loadInput)
         }
-        .onAppear(perform: loadInput)
     }
+    
     func addTeam(){
-        withAnimation{
-            teamList.append("\(newTeam)")
+        withAnimation {
+            teamList.append(Team(num: Int(newTeam.trimmingCharacters(in: .whitespaces)) ?? 0))
         }
     }
-    func deleteFunc(){
-        deleteAlert.toggle()
-    }
-    func delete(at offsets: IndexSet){
-        
-        teamList.remove(atOffsets: offsets)
-        deleteOption = false
-        saveInput()
-    }
-    func saveInput(){
+    
+    func saveInput() {
         let defaults = UserDefaults.standard
         
-        defaults.set(teamList, forKey: "teamList")
+        let encoder = JSONEncoder()
+        
+        let data = try? encoder.encode(teamList)
+        
+        defaults.set(data, forKey: "teamList")
     }
-    func loadInput(){
+    
+    func loadInput() {
         let defaults = UserDefaults.standard
         
-        if let foundItems = defaults.array(forKey: "teamList") as? [String]{
-            self.teamList = foundItems
+        if let data = defaults.data(forKey: "teamList")
+        {
+            do {
+                let decoder = JSONDecoder()
+                
+                teamList = try decoder.decode([Team].self, from: data)
+            } catch {
+                teamList = [ ]
+            }
+        } else {
+            teamList = [ ]
         }
     }
 }
